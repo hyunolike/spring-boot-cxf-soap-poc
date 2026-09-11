@@ -1,0 +1,23 @@
+cxf:
+  path: /services   # SOAP Endpoint base path
+
+spring:
+  datasource:
+    url: jdbc:h2:mem:paymentdb
+    driver-class-name: org.h2.Driver
+    username: sa
+    password:
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+    show-sql: true
+    properties:
+      hibernate:
+        format_sql: true
+  h2:
+    console:
+      enabled: true   # http://localhost:8080/h2-console
+
+logging:
+  level:
+    org.apache.cxf.services: INFO   # SOAP 요청/응답 XML 로그

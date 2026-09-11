@@ -1,0 +1,12 @@
+<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/"
+                  xmlns:pay="http://payment.poc.com/">
+    <soapenv:Body>
+        <pay:approve>
+            <request>
+                <merchantId>M1001</merchantId>
+                <cardNo>1234567890123456</cardNo>
+                <amount>10000</amount>
+            </request>
+        </pay:approve>
+    </soapenv:Body>
+</soapenv:Envelope>
