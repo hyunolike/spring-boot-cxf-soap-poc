@@ -1,56 +1,59 @@
-# 카드 결제 SOAP 인터페이스
+# Card Payment SOAP Interface
 
-> 레거시 SOAP 결제 시스템의 `@WebService` SEI + `ServiceImpl` 구조를
-> **Spring Boot + Apache CXF(JAX-WS)** 위에서 재현한 학습용 PoC
+**English** | [한국어](README.ko.md) | [简体中文](README.zh-CN.md) | [日本語](README.ja.md)
 
-실시간 REST가 아니라 **SOAP 전문**으로 주고받는 연동에서 반복적으로 등장하는 문제
-— 계약(WSDL)과 구현의 분리, Fault 대신 결과 코드, XML ↔ 객체 마샬링 — 를
-직접 겪어보고 해결해보는 것이 목표다.
+> A learning PoC that recreates the `@WebService` SEI + `ServiceImpl` structure of a
+> legacy SOAP payment system on top of **Spring Boot + Apache CXF (JAX-WS)**
 
-<br>
-
-## 🎯 학습 목표
-
-- Java First 방식에서 **SEI가 WSDL로 변환되는 과정**을 눈으로 확인한다
-- `@WebService`의 `targetNamespace` / `serviceName` / `endpointInterface` 역할을 구분한다
-- **Endpoint(어댑터)와 ApplicationService(비즈니스)를 분리**하는 이유를 체감한다
-- JAXB가 XML ↔ Java 객체를 마샬링하는 과정을 로그로 관찰한다
+The point is to run into — and work through — the problems that keep coming up in
+**SOAP message** integrations rather than modern REST: keeping the contract (WSDL)
+separate from the implementation, reporting failures as result codes instead of faults,
+and marshalling XML to and from objects.
 
 <br>
 
-## 🚀 기능 요구사항
+## 🎯 Learning Goals
 
-### 카드 승인 (`approve`)
+- Watch **how an SEI becomes a WSDL** in the Java First approach
+- Tell apart the roles of `targetNamespace` / `serviceName` / `endpointInterface` in `@WebService`
+- Feel out why the **endpoint (adapter) and the application service (business logic) are kept apart**
+- Observe JAXB marshalling XML to and from Java objects in the logs
 
-- 가맹점 ID, 카드번호, 금액을 받아 결제를 승인한다.
-- 승인번호는 `AP` + `yyyyMMdd` + 6자리 난수 형식으로 생성한다. (예: `AP20260911712509`)
-- 카드번호는 **마스킹해서만 저장한다.** 앞 6자리와 뒤 4자리를 제외한 나머지를 가린다.
+<br>
+
+## 🚀 Functional Requirements
+
+### Card approval (`approve`)
+
+- Approve a payment from a merchant ID, a card number and an amount.
+- Generate the approval number as `AP` + `yyyyMMdd` + 6 random digits. (e.g. `AP20260911712509`)
+- **Only ever store the card number masked.** Hide everything but the first 6 and last 4 digits.
   - `1234567890123456` → `123456******3456`
 
-### 카드 취소 (`cancel`)
+### Card cancellation (`cancel`)
 
-- 가맹점 ID와 승인번호로 거래를 찾아 취소한다.
-- 취소된 거래는 상태가 `APPROVED → CANCELED`로 바뀌고 취소 시각이 기록된다.
+- Find a transaction by merchant ID and approval number, then cancel it.
+- A cancelled transaction moves from `APPROVED` to `CANCELED` and records the cancellation time.
 
-### 예외 처리
+### Error handling
 
-- 아래 승인 요청은 예외가 발생해야 한다.
-  - 가맹점 ID가 비어 있는 경우
-  - 카드번호가 15자리 미만인 경우
-  - 금액이 0 이하인 경우
-- 아래 취소 요청은 예외가 발생해야 한다.
-  - 해당 승인번호의 거래가 없는 경우
-  - 이미 취소된 거래인 경우
-- 발생한 예외는 **SOAP Fault로 던지지 않고 결과 코드로 변환**해 응답한다.
-- 예상하지 못한 예외는 `9999`로 묶고, 원인은 서버 로그에만 남긴다.
+- These approval requests must raise an exception.
+  - The merchant ID is blank
+  - The card number is shorter than 15 digits
+  - The amount is zero or less
+- These cancellation requests must raise an exception.
+  - No transaction exists for that approval number
+  - The transaction is already cancelled
+- Exceptions are **never thrown as SOAP faults** — they are translated into result codes.
+- Unexpected exceptions collapse into `9999`, and the cause stays in the server log only.
 
 <br>
 
-## 📄 인터페이스 규격
+## 📄 Interface Specification
 
 ### Endpoint
 
-| 구분 | 값 |
+| Item | Value |
 |---|---|
 | targetNamespace | `http://payment.poc.com/` |
 | serviceName | `PaymentService` |
@@ -58,89 +61,92 @@
 | Endpoint | `http://localhost:8080/services/payment` |
 | WSDL | `http://localhost:8080/services/payment?wsdl` |
 
-### 오퍼레이션
+### Operations
 
-| 오퍼레이션 | 요청 | 응답 |
+| Operation | Request | Response |
 |---|---|---|
 | `approve` | `merchantId`, `cardNo`, `amount` | `resultCode`, `resultMessage`, `approvalNo`, `approvedAt` |
 | `cancel` | `merchantId`, `approvalNo` | `resultCode`, `resultMessage`, `approvalNo`, `canceledAt` |
 
-요청 파트명은 `request`, 응답 파트명은 `response`로 고정한다. (`@WebParam` / `@WebResult`)
+The request part is always named `request` and the response part `response`. (`@WebParam` / `@WebResult`)
 
-### 결과 코드
+### Result codes
 
-SOAP 응답은 **Fault 대신 결과 코드로 실패를 표현한다.** (레거시 전문 연동 방식)
+The SOAP response reports failure **with a result code rather than a fault** — the way
+legacy message-based integrations do it.
 
-| 코드 | 의미 |
+| Code | Meaning |
 |---|---|
-| `0000` | 성공 |
-| `1001` | 승인 요청값 오류 |
-| `2001` | 취소 실패 (거래 없음 / 이미 취소됨) |
-| `9999` | 시스템 오류 |
+| `0000` | Success |
+| `1001` | Invalid approval request |
+| `2001` | Cancellation failed (no such transaction / already cancelled) |
+| `9999` | System error |
 
-### 승인번호
+### Approval number
 
 ```
 AP20260911712509
 ```
 
-| 구간 | 예시 | 의미 |
+| Segment | Example | Meaning |
 |---|---|---|
-| 접두사 | `AP` | 승인(Approval) |
-| 승인일자 | `20260911` | `yyyyMMdd` |
-| 일련번호 | `712509` | 6자리 난수 |
+| Prefix | `AP` | Approval |
+| Approval date | `20260911` | `yyyyMMdd` |
+| Serial | `712509` | 6 random digits |
 
-승인번호가 **취소 요청의 키** 역할을 한다. `merchantId + approvalNo`로 거래를 찾는다.
-
-<br>
-
-## 📐 프로그래밍 요구사항
-
-- Java 17, Spring Boot 3.5.11, Apache CXF 4.1.5 를 사용한다.
-- DB는 H2(in-memory) + Spring Data JPA 를 사용한다.
-- **`PaymentService`(SEI)는 외부 계약이다.** 이 인터페이스가 그대로 WSDL로 노출되므로
-  내부 사정으로 시그니처를 바꾸지 않는다.
-- **`PaymentServiceImpl`에는 비즈니스 로직을 두지 않는다.** DTO ↔ 도메인 변환 후
-  ApplicationService에 위임만 한다.
-- **`PaymentApplicationService`는 SOAP를 전혀 몰라야 한다.**
-  SOAP를 REST로 바꿔도 이 클래스는 그대로 재사용 가능해야 한다.
-- 도메인 객체는 setter를 열지 않고, 정적 팩토리 메서드와 의미 있는 메서드로 상태를 바꾼다.
-- **커밋 단위는 아래 기능 목록 단위로 한다.**
+The approval number is **the key for cancellation requests**. A transaction is looked up
+by `merchantId` + `approvalNo`.
 
 <br>
 
-## ✅ 구현할 기능 목록
+## 📐 Programming Requirements
 
-- [x] 도메인 `Payment` / `PaymentStatus` 정의
-  - [x] `Payment.approve()` 정적 팩토리로 승인 상태 생성
-  - [x] `Payment.cancel()` — 이미 취소된 거래면 예외
-- [x] `PaymentRepository` — 가맹점 ID + 승인번호로 거래 조회
-- [x] `PaymentApplicationService` 비즈니스 로직
-  - [x] 승인 요청값 검증 (가맹점 ID / 카드번호 / 금액)
-  - [x] 카드번호 마스킹
-  - [x] 승인번호 생성
-  - [x] 취소 처리
-  - [ ] 승인 요청 멱등성 처리 (동일 요청 중복 승인 방지)
-- [x] SOAP 계약 정의
+- Use Java 17, Spring Boot 3.5.11 and Apache CXF 4.1.5.
+- Use H2 (in-memory) with Spring Data JPA.
+- **`PaymentService` (the SEI) is an external contract.** It is exposed verbatim as the WSDL,
+  so its signature must not change for internal reasons.
+- **Keep business logic out of `PaymentServiceImpl`.** It converts DTO ↔ domain and
+  delegates to the application service, nothing more.
+- **`PaymentApplicationService` must know nothing about SOAP.**
+  Swapping SOAP for REST should leave this class reusable as is.
+- Domain objects expose no setters; state changes go through static factories and
+  meaningful methods.
+- **Commit granularity follows the feature checklist below.**
+
+<br>
+
+## ✅ Feature Checklist
+
+- [x] `Payment` / `PaymentStatus` domain
+  - [x] `Payment.approve()` static factory creating the approved state
+  - [x] `Payment.cancel()` — throws if already cancelled
+- [x] `PaymentRepository` — look up by merchant ID + approval number
+- [x] `PaymentApplicationService` business logic
+  - [x] Validate the approval request (merchant ID / card number / amount)
+  - [x] Mask the card number
+  - [x] Generate the approval number
+  - [x] Handle cancellation
+  - [ ] Idempotent approvals (reject duplicate requests)
+- [x] SOAP contract
   - [x] `PaymentService` SEI (`@WebService`)
-  - [x] 요청/응답 DTO (JAXB `@XmlType`)
-  - [ ] 조회(inquiry) 오퍼레이션
-- [x] `PaymentServiceImpl` SOAP 어댑터
-  - [x] `CardPaymentMapper` 도메인 ↔ DTO 변환
-  - [x] 예외 → 결과 코드 변환
-- [x] `CxfConfig` — Endpoint publish + `LoggingFeature`
-  - [ ] WS-Security(UsernameToken) 헤더 인증
-- [x] 테스트
-  - [x] 통합 테스트 (`JaxWsProxyFactoryBean` 클라이언트)
-  - [x] curl 호출 스크립트
+  - [x] Request/response DTOs (JAXB `@XmlType`)
+  - [ ] `inquiry` operation
+- [x] `PaymentServiceImpl` SOAP adapter
+  - [x] `CardPaymentMapper` for domain ↔ DTO conversion
+  - [x] Exception → result code translation
+- [x] `CxfConfig` — endpoint publish + `LoggingFeature`
+  - [ ] WS-Security (UsernameToken) header authentication
+- [x] Tests
+  - [x] Integration test with a `JaxWsProxyFactoryBean` client
+  - [x] curl scripts
 
 <br>
 
-## 📤 실행 결과
+## 📤 Results
 
-### 승인 성공
+### Approval succeeds
 
-**요청**
+**Request**
 
 ```xml
 <soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/"
@@ -157,7 +163,7 @@ AP20260911712509
 </soapenv:Envelope>
 ```
 
-**응답**
+**Response**
 
 ```xml
 <response>
@@ -168,7 +174,7 @@ AP20260911712509
 </response>
 ```
 
-### 승인 실패 — 금액이 0 이하
+### Approval fails — amount is zero or less
 
 ```xml
 <response>
@@ -177,7 +183,7 @@ AP20260911712509
 </response>
 ```
 
-### 취소 성공
+### Cancellation succeeds
 
 ```xml
 <response>
@@ -188,7 +194,7 @@ AP20260911712509
 </response>
 ```
 
-### 취소 실패 — 이미 취소된 거래
+### Cancellation fails — already cancelled
 
 ```xml
 <response>
@@ -197,7 +203,7 @@ AP20260911712509
 </response>
 ```
 
-### 취소 실패 — 거래 없음
+### Cancellation fails — no such transaction
 
 ```xml
 <response>
@@ -206,130 +212,134 @@ AP20260911712509
 </response>
 ```
 
+> Result messages are in Korean because they come straight from the domain code.
+
 <br>
 
-## 🏗 아키텍처
+## 🏗 Architecture
 
 ```mermaid
 flowchart LR
     Client["SOAP Client"] -->|"SOAP XML"| CXF["Apache CXF<br/>CXFServlet /services"]
     CXF --> SEI["PaymentService<br/>SEI @WebService"]
     SEI --> IMPL["PaymentServiceImpl<br/>SOAP Adapter"]
-    IMPL --> APP["PaymentApplicationService<br/>@Service 비즈니스 로직"]
+    IMPL --> APP["PaymentApplicationService<br/>@Service business logic"]
     APP --> REPO["PaymentRepository"] --> DB[(H2)]
 ```
 
-SOAP 계약(어댑터)과 비즈니스 로직을 분리한 구조다.
+The SOAP contract (the adapter) is kept apart from the business logic.
 
 ```
 com.poc.payment
 ├── config/
 │   └── CxfConfig.java               # Endpoint publish("/payment") + LoggingFeature
-├── webservice/card/                 # SOAP 어댑터 계층 (외부 계약)
-│   ├── PaymentService.java          # SEI (@WebService) — 그대로 WSDL이 된다
-│   ├── PaymentServiceImpl.java      # Endpoint 구현체, 예외 → 결과 코드 변환
-│   ├── dto/                         # SOAP 메시지 계약 (JAXB @XmlType)
-│   └── mapper/                      # CardPaymentMapper — 도메인 ↔ DTO 변환
-├── service/                         # PaymentApplicationService (SOAP를 모르는 계층)
-├── domain/                          # Payment(상태 머신), PaymentStatus
+├── webservice/card/                 # SOAP adapter layer (the external contract)
+│   ├── PaymentService.java          # SEI (@WebService) — becomes the WSDL verbatim
+│   ├── PaymentServiceImpl.java      # Endpoint impl, exception → result code
+│   ├── dto/                         # SOAP message contract (JAXB @XmlType)
+│   └── mapper/                      # CardPaymentMapper — domain ↔ DTO
+├── service/                         # PaymentApplicationService (knows nothing of SOAP)
+├── domain/                          # Payment (state machine), PaymentStatus
 └── repository/                      # Spring Data JPA
 ```
 
-비즈니스 계층이 SOAP를 모르므로 SOAP를 REST로 바꿔도 `service` 이하는 그대로 재사용할 수 있다.
+Because the business layer knows nothing about SOAP, swapping SOAP for REST leaves
+everything under `service` reusable as is.
 
 <br>
 
-## 🛠 기술 스택
+## 🛠 Tech Stack
 
-| 구분 | 사용 기술 |
+| Area | Technology |
 |---|---|
 | Language | Java 17 |
 | Framework | Spring Boot 3.5.11 |
 | SOAP | Apache CXF 4.1.5 (`cxf-spring-boot-starter-jaxws`), JAX-WS / JAXB |
-| 영속성 | Spring Data JPA, H2 (in-memory) |
-| 빌드 | Gradle |
-| SOAP 로깅 | `cxf-rt-features-logging` (`LoggingFeature`) |
+| Persistence | Spring Data JPA, H2 (in-memory) |
+| Build | Gradle |
+| SOAP logging | `cxf-rt-features-logging` (`LoggingFeature`) |
 
 <br>
 
-## 🏃 실행 방법
+## 🏃 Getting Started
 
 ```bash
-# 1. 애플리케이션 실행
+# 1. Run the application
 ./gradlew bootRun
 
-# 2. WSDL 확인 — SEI가 계약으로 변환된 결과
+# 2. Check the WSDL — the SEI turned into a contract
 curl http://localhost:8080/services/payment?wsdl
 
-# 3. 승인 호출
+# 3. Call approve
 ./scripts/approve.sh
 ```
 
-| 구분 | 주소 |
+| Item | Address |
 |---|---|
-| SOAP Endpoint | `http://localhost:8080/services/payment` |
+| SOAP endpoint | `http://localhost:8080/services/payment` |
 | **WSDL** | `http://localhost:8080/services/payment?wsdl` |
-| H2 콘솔 | `http://localhost:8080/h2-console` (JDBC URL: `jdbc:h2:mem:paymentdb`, 사용자 `sa`, 비밀번호 없음) |
+| H2 console | `http://localhost:8080/h2-console` (JDBC URL `jdbc:h2:mem:paymentdb`, user `sa`, no password) |
 
-H2 콘솔에서 승인/취소 결과를 확인할 수 있다.
+Approvals and cancellations can be inspected in the H2 console.
 
 ```sql
-SELECT * FROM payments;  -- status = APPROVED / CANCELED, masked_card_no 확인
+SELECT * FROM payments;  -- check status = APPROVED / CANCELED and masked_card_no
 ```
 
-### 테스트
+### Tests
 
 ```bash
 ./gradlew test
 ```
 
-- `PaymentSoapIntegrationTest` — `JaxWsProxyFactoryBean` 자바 SOAP 클라이언트로 승인/취소 시나리오 검증
+- `PaymentSoapIntegrationTest` — drives the approve/cancel scenarios through a
+  `JaxWsProxyFactoryBean` Java SOAP client
 
-curl로 SOAP 전문을 직접 쏴볼 수도 있다.
+You can also send the SOAP messages directly with curl.
 
 ```bash
-./scripts/approve.sh                      # 승인
-./scripts/cancel.sh AP20260911712509      # 취소 (승인 응답의 approvalNo 사용)
+./scripts/approve.sh                      # approve
+./scripts/cancel.sh AP20260911712509      # cancel (use approvalNo from the approval response)
 ```
 
-**SoapUI** — WSDL URL을 임포트하면 요청 템플릿이 자동 생성된다.
+**SoapUI** — importing the WSDL URL generates the request templates for you.
 
-> 콘솔에 `LoggingFeature`가 SOAP 요청/응답 XML을 그대로 출력하므로
-> JAXB 마샬링 과정을 눈으로 확인할 수 있다.
+> `LoggingFeature` prints the SOAP request and response XML to the console as is,
+> so you can watch JAXB marshalling with your own eyes.
 
 <br>
 
-## 🤔 설계하며 고민한 점
+## 🤔 Design Decisions
 
-| 주제 | 선택 | 이유 |
+| Topic | Choice | Why |
 |---|---|---|
-| WSDL 생성 | Java First (`@WebService` SEI) | SEI가 그대로 계약이 되는 과정을 눈으로 확인하려고 선택했다 |
-| 실패 표현 | Fault 대신 결과 코드 | 레거시 전문 연동 관례. 클라이언트가 예외 스택 대신 코드로 분기한다 |
-| 계층 분리 | Endpoint(어댑터) / ApplicationService(비즈니스) | SOAP를 REST로 바꿔도 비즈니스 로직을 그대로 재사용할 수 있다 |
-| 메시지 계약 | 도메인이 아닌 별도 JAXB DTO | 도메인 필드가 바뀌어도 외부 계약(WSDL)이 깨지지 않는다 |
-| 예외 매핑 | 비즈니스는 예외를 던지고, 어댑터가 코드로 번역 | 비즈니스 계층이 전문 코드 체계를 몰라도 된다 |
-| 카드번호 | 마스킹한 값만 저장 | 원본을 보관하지 않는다. 마스킹 책임은 비즈니스 계층에 둔다 |
-| 도메인 상태 변경 | 정적 팩토리 + `cancel()` | setter를 열지 않는다. "이미 취소됨" 방어를 도메인이 책임진다 |
+| WSDL generation | Java First (`@WebService` SEI) | Chosen to watch the SEI itself become the contract |
+| Reporting failure | Result codes instead of faults | The legacy message-integration convention: clients branch on a code, not a stack trace |
+| Layering | Endpoint (adapter) / application service (business) | Swapping SOAP for REST leaves the business logic reusable |
+| Message contract | Separate JAXB DTOs rather than the domain | Domain fields can change without breaking the external contract (the WSDL) |
+| Exception mapping | Business throws, the adapter translates to a code | The business layer need not know the code scheme |
+| Card number | Only the masked value is stored | The original is never kept; masking belongs to the business layer |
+| Domain state changes | Static factory + `cancel()` | No setters. The domain itself guards against "already cancelled" |
 
 <br>
 
-## ⚠️ 알려진 단순화
+## ⚠️ Known Simplifications
 
-PoC 범위로 의도적으로 남겨둔 부분이다. 실전 적용 전에 반드시 해소해야 한다.
+Deliberately left out to keep the PoC small. Each has to be resolved before any real use.
 
-- **인증·암호화가 없다** — WS-Security(UsernameToken)도 HTTPS도 적용하지 않았다. 실전 대외계는 둘 다 필수다.
-- **`LoggingFeature`가 요청 XML 전체를 출력** — 마샬링 관찰용이다. 카드번호 평문이 그대로 로그에 남으므로 운영에 켜둘 수 없다.
-- **승인 요청에 멱등성이 없다** — 같은 요청을 두 번 보내면 승인이 두 건 생긴다. 실전은 거래고유번호 기반 중복 체크가 필요하다.
-- **승인번호가 6자리 난수** — 같은 날 충돌하면 unique 제약에 걸려 `9999`로 떨어진다. 실전은 시퀀스/채번 서버를 쓴다.
-- **Java First** — SEI를 고치면 WSDL이 곧바로 바뀐다. 외부 계약이 먼저 정해지는 대외계에서는 Contract First가 안전하다.
-- **H2 in-memory** — 재기동하면 거래 데이터가 사라진다.
+- **No authentication or encryption** — neither WS-Security (UsernameToken) nor HTTPS is in place. A real external interface needs both.
+- **`LoggingFeature` prints the whole request XML** — it is there to watch marshalling. Plaintext card numbers end up in the log, so it cannot stay on in production.
+- **Approvals are not idempotent** — sending the same request twice creates two approvals. Real systems need duplicate detection keyed on a transaction ID.
+- **The approval number is 6 random digits** — a same-day collision hits the unique constraint and comes back as `9999`. Real systems use a sequence or a numbering service.
+- **Java First** — editing the SEI changes the WSDL immediately. Where the external contract is agreed up front, Contract First is safer.
+- **H2 in-memory** — transaction data is gone on restart.
 
 <br>
 
-## 🗺 앞으로 구현할 것
+## 🗺 Roadmap
 
-- [ ] 조회(inquiry) 오퍼레이션 추가 → WSDL diff 관찰
-- [ ] `wsdl2java`로 **Contract First** 버전을 만들어 Java First와 비교
-- [ ] WSS4J로 SOAP 헤더 인증(UsernameToken) 추가
-- [ ] 두 번째 SEI(예: `TossPayService`) 추가해 멀티 Endpoint 구성
-- [ ] 승인 요청 멱등성 (거래고유번호 기반 중복 승인 방지)
+- [ ] Add an `inquiry` operation and watch the WSDL diff
+- [ ] Build a **Contract First** version with `wsdl2java` and compare it against Java First
+- [ ] Add SOAP header authentication (UsernameToken) with WSS4J
+- [ ] Add a second SEI (say `TossPayService`) for a multi-endpoint setup
+- [ ] Idempotent approvals (duplicate detection keyed on a transaction ID)
