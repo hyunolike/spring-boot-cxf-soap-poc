@@ -1,0 +1,13 @@
+<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/"
+                  xmlns:toss="http://toss.payment.poc.com/">
+    <soapenv:Body>
+        <toss:pay>
+            <request>
+                <storeId>STORE-7001</storeId>
+                <orderId>ORDER-20260911-0001</orderId>
+                <payToken>9876543210987654</payToken>
+                <totalAmount>17000</totalAmount>
+            </request>
+        </toss:pay>
+    </soapenv:Body>
+</soapenv:Envelope>
