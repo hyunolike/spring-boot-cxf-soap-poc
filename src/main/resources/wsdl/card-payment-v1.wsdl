@@ -1,0 +1,150 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Contract First: 이 파일이 먼저고 Java가 나중이다.
+  Java First(PaymentService SEI)와 같은 업무를 손으로 쓴 계약으로 표현한 버전.
+
+  Java First로는 표현하기 까다로웠던 것들을 일부러 넣었다.
+    - xs:dateTime      : 문자열 포매팅 대신 타입으로 시각을 표현
+    - xs:enumeration   : 상태 값의 허용 목록을 스키마가 강제
+    - xs:pattern       : 승인번호 형식을 스키마가 강제
+    - minOccurs/maxOccurs, totalDigits 같은 제약을 계약이 직접 명시
+-->
+<wsdl:definitions xmlns:wsdl="http://schemas.xmlsoap.org/wsdl/"
+                  xmlns:soap="http://schemas.xmlsoap.org/wsdl/soap/"
+                  xmlns:xs="http://www.w3.org/2001/XMLSchema"
+                  xmlns:tns="http://contract.payment.poc.com/v1"
+                  name="CardPaymentServiceV1"
+                  targetNamespace="http://contract.payment.poc.com/v1">
+
+    <wsdl:types>
+        <xs:schema elementFormDefault="qualified"
+                   targetNamespace="http://contract.payment.poc.com/v1">
+
+            <xs:simpleType name="ApprovalNo">
+                <xs:restriction base="xs:string">
+                    <xs:pattern value="AP[0-9]{14}"/>
+                </xs:restriction>
+            </xs:simpleType>
+
+            <xs:simpleType name="PaymentStatus">
+                <xs:restriction base="xs:string">
+                    <xs:enumeration value="APPROVED"/>
+                    <xs:enumeration value="CANCELED"/>
+                </xs:restriction>
+            </xs:simpleType>
+
+            <xs:simpleType name="ResultCode">
+                <xs:restriction base="xs:string">
+                    <xs:pattern value="[0-9]{4}"/>
+                </xs:restriction>
+            </xs:simpleType>
+
+            <xs:simpleType name="Amount">
+                <xs:restriction base="xs:decimal">
+                    <xs:minExclusive value="0"/>
+                    <xs:totalDigits value="15"/>
+                    <xs:fractionDigits value="0"/>
+                </xs:restriction>
+            </xs:simpleType>
+
+            <xs:element name="approveCardRequest">
+                <xs:complexType>
+                    <xs:sequence>
+                        <xs:element name="merchantId" type="xs:string"/>
+                        <xs:element name="txId" type="xs:string"/>
+                        <xs:element name="cardNo" type="xs:string"/>
+                        <xs:element name="amount" type="tns:Amount"/>
+                    </xs:sequence>
+                </xs:complexType>
+            </xs:element>
+
+            <xs:element name="approveCardResponse">
+                <xs:complexType>
+                    <xs:sequence>
+                        <xs:element name="resultCode" type="tns:ResultCode"/>
+                        <xs:element name="resultMessage" type="xs:string"/>
+                        <xs:element minOccurs="0" name="approvalNo" type="tns:ApprovalNo"/>
+                        <xs:element minOccurs="0" name="approvedAt" type="xs:dateTime"/>
+                        <xs:element name="duplicated" type="xs:boolean"/>
+                    </xs:sequence>
+                </xs:complexType>
+            </xs:element>
+
+            <xs:element name="inquireCardRequest">
+                <xs:complexType>
+                    <xs:sequence>
+                        <xs:element name="merchantId" type="xs:string"/>
+                        <xs:element name="approvalNo" type="tns:ApprovalNo"/>
+                    </xs:sequence>
+                </xs:complexType>
+            </xs:element>
+
+            <xs:element name="inquireCardResponse">
+                <xs:complexType>
+                    <xs:sequence>
+                        <xs:element name="resultCode" type="tns:ResultCode"/>
+                        <xs:element name="resultMessage" type="xs:string"/>
+                        <xs:element minOccurs="0" name="approvalNo" type="tns:ApprovalNo"/>
+                        <xs:element minOccurs="0" name="status" type="tns:PaymentStatus"/>
+                        <xs:element minOccurs="0" name="maskedCardNo" type="xs:string"/>
+                        <xs:element minOccurs="0" name="amount" type="tns:Amount"/>
+                        <xs:element minOccurs="0" name="approvedAt" type="xs:dateTime"/>
+                        <xs:element minOccurs="0" name="canceledAt" type="xs:dateTime"/>
+                    </xs:sequence>
+                </xs:complexType>
+            </xs:element>
+        </xs:schema>
+    </wsdl:types>
+
+    <wsdl:message name="approveCardRequest">
+        <wsdl:part element="tns:approveCardRequest" name="parameters"/>
+    </wsdl:message>
+    <wsdl:message name="approveCardResponse">
+        <wsdl:part element="tns:approveCardResponse" name="parameters"/>
+    </wsdl:message>
+    <wsdl:message name="inquireCardRequest">
+        <wsdl:part element="tns:inquireCardRequest" name="parameters"/>
+    </wsdl:message>
+    <wsdl:message name="inquireCardResponse">
+        <wsdl:part element="tns:inquireCardResponse" name="parameters"/>
+    </wsdl:message>
+
+    <wsdl:portType name="CardPaymentPortType">
+        <wsdl:operation name="approveCard">
+            <wsdl:input message="tns:approveCardRequest" name="approveCardRequest"/>
+            <wsdl:output message="tns:approveCardResponse" name="approveCardResponse"/>
+        </wsdl:operation>
+        <wsdl:operation name="inquireCard">
+            <wsdl:input message="tns:inquireCardRequest" name="inquireCardRequest"/>
+            <wsdl:output message="tns:inquireCardResponse" name="inquireCardResponse"/>
+        </wsdl:operation>
+    </wsdl:portType>
+
+    <wsdl:binding name="CardPaymentSoapBinding" type="tns:CardPaymentPortType">
+        <soap:binding style="document" transport="http://schemas.xmlsoap.org/soap/http"/>
+        <wsdl:operation name="approveCard">
+            <soap:operation soapAction="http://contract.payment.poc.com/v1/approveCard"/>
+            <wsdl:input name="approveCardRequest">
+                <soap:body use="literal"/>
+            </wsdl:input>
+            <wsdl:output name="approveCardResponse">
+                <soap:body use="literal"/>
+            </wsdl:output>
+        </wsdl:operation>
+        <wsdl:operation name="inquireCard">
+            <soap:operation soapAction="http://contract.payment.poc.com/v1/inquireCard"/>
+            <wsdl:input name="inquireCardRequest">
+                <soap:body use="literal"/>
+            </wsdl:input>
+            <wsdl:output name="inquireCardResponse">
+                <soap:body use="literal"/>
+            </wsdl:output>
+        </wsdl:operation>
+    </wsdl:binding>
+
+    <wsdl:service name="CardPaymentService">
+        <wsdl:port binding="tns:CardPaymentSoapBinding" name="CardPaymentPort">
+            <soap:address location="http://localhost:8080/services/card-payment-v1"/>
+        </wsdl:port>
+    </wsdl:service>
+</wsdl:definitions>

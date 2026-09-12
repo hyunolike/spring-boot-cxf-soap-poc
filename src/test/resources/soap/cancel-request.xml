@@ -1,5 +1,15 @@
 <soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/"
                   xmlns:pay="http://payment.poc.com/">
+    <soapenv:Header>
+        <!-- WS-Security UsernameToken (PasswordText). 헤더가 없으면 SOAP Fault가 떨어진다. -->
+        <wsse:Security soapenv:mustUnderstand="1"
+                       xmlns:wsse="http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-secext-1.0.xsd">
+            <wsse:UsernameToken>
+                <wsse:Username>poc-client</wsse:Username>
+                <wsse:Password Type="http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-username-token-profile-1.0#PasswordText">poc-secret</wsse:Password>
+            </wsse:UsernameToken>
+        </wsse:Security>
+    </soapenv:Header>
     <soapenv:Body>
         <pay:cancel>
             <request>

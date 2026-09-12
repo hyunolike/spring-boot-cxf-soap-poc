@@ -1,11 +1,14 @@
 package com.poc.payment.webservice.card;
 
 import com.poc.payment.domain.Payment;
+import com.poc.payment.service.ApprovalResult;
 import com.poc.payment.service.PaymentApplicationService;
 import com.poc.payment.webservice.card.dto.CardApprovalRequest;
 import com.poc.payment.webservice.card.dto.CardApprovalResponse;
 import com.poc.payment.webservice.card.dto.CardCancelRequest;
 import com.poc.payment.webservice.card.dto.CardCancelResponse;
+import com.poc.payment.webservice.card.dto.CardInquiryRequest;
+import com.poc.payment.webservice.card.dto.CardInquiryResponse;
 import com.poc.payment.webservice.card.mapper.CardPaymentMapper;
 import jakarta.jws.WebService;
 import lombok.RequiredArgsConstructor;
@@ -32,14 +35,15 @@ public class PaymentServiceImpl implements PaymentService {
 
     @Override
     public CardApprovalResponse approve(CardApprovalRequest request) {
-        log.info("[SOAP] approve merchantId={}, amount={}",
-                request.getMerchantId(), request.getAmount());
+        log.info("[SOAP] approve merchantId={}, txId={}, amount={}",
+                request.getMerchantId(), request.getTxId(), request.getAmount());
         try {
-            Payment payment = paymentApplicationService.approve(
+            ApprovalResult result = paymentApplicationService.approve(
                     request.getMerchantId(),
+                    request.getTxId(),
                     request.getCardNo(),
                     request.getAmount());
-            return CardPaymentMapper.toApprovalResponse(payment);
+            return CardPaymentMapper.toApprovalResponse(result);
         } catch (IllegalArgumentException e) {
             return CardPaymentMapper.approvalFail("1001", e.getMessage());
         } catch (Exception e) {
@@ -61,6 +65,22 @@ public class PaymentServiceImpl implements PaymentService {
         } catch (Exception e) {
             log.error("cancel failed", e);
             return CardPaymentMapper.cancelFail("9999", "시스템 오류");
+        }
+    }
+
+    @Override
+    public CardInquiryResponse inquiry(CardInquiryRequest request) {
+        log.info("[SOAP] inquiry approvalNo={}", request.getApprovalNo());
+        try {
+            Payment payment = paymentApplicationService.inquiry(
+                    request.getMerchantId(),
+                    request.getApprovalNo());
+            return CardPaymentMapper.toInquiryResponse(payment);
+        } catch (IllegalArgumentException e) {
+            return CardPaymentMapper.inquiryFail("3001", e.getMessage());
+        } catch (Exception e) {
+            log.error("inquiry failed", e);
+            return CardPaymentMapper.inquiryFail("9999", "시스템 오류");
         }
     }
 }
