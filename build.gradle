@@ -17,8 +17,17 @@ ext {
     cxfVersion = '4.1.5'
 }
 
+// Contract First 산출물: 손으로 쓴 WSDL -> wsdl2java -> 생성 소스
+def contractWsdl = file('src/main/resources/wsdl/card-payment-v1.wsdl')
+def generatedSourceDir = layout.buildDirectory.dir('generated/wsdl2java')
+
 repositories {
     mavenCentral()
+}
+
+configurations {
+    // wsdl2java 실행에만 쓰는 클래스패스 (애플리케이션 런타임과 분리)
+    wsdl2java
 }
 
 dependencies {
@@ -42,6 +51,42 @@ dependencies {
     annotationProcessor 'org.projectlombok:lombok'
 
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
+
+    wsdl2java "org.apache.cxf:cxf-tools-wsdlto-core:${cxfVersion}"
+    wsdl2java "org.apache.cxf:cxf-tools-wsdlto-databinding-jaxb:${cxfVersion}"
+    wsdl2java "org.apache.cxf:cxf-tools-wsdlto-frontend-jaxws:${cxfVersion}"
+}
+
+/**
+ * Contract First 경로.
+ * 계약(WSDL)이 입력이고 Java가 산출물이다. 생성 소스는 커밋하지 않는다 —
+ * WSDL을 고치면 다음 빌드에서 Java가 따라오게 두는 것이 Contract First의 요점이다.
+ */
+tasks.register('wsdl2java', JavaExec) {
+    description = '손으로 쓴 WSDL에서 SEI와 JAXB 타입을 생성한다'
+    group = 'build'
+    inputs.file contractWsdl
+    outputs.dir generatedSourceDir
+
+    classpath = configurations.wsdl2java
+    mainClass = 'org.apache.cxf.tools.wsdlto.WSDLToJava'
+    args = [
+            '-d', generatedSourceDir.get().asFile.absolutePath,
+            '-p', 'http://contract.payment.poc.com/v1=com.poc.payment.generated.cardv1',
+            '-wsdlLocation', 'classpath:wsdl/card-payment-v1.wsdl',
+            '-validate',
+            contractWsdl.absolutePath
+    ]
+    doFirst {
+        delete generatedSourceDir
+        generatedSourceDir.get().asFile.mkdirs()
+    }
+}
+
+sourceSets.main.java.srcDir generatedSourceDir
+
+tasks.named('compileJava') {
+    dependsOn 'wsdl2java'
 }
 
 tasks.named('test') {

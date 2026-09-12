@@ -1,0 +1,22 @@
+<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/"
+                  xmlns:v1="http://contract.payment.poc.com/v1">
+    <soapenv:Header>
+        <!-- WS-Security UsernameToken (PasswordText). 헤더가 없으면 SOAP Fault가 떨어진다. -->
+        <wsse:Security soapenv:mustUnderstand="1"
+                       xmlns:wsse="http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-secext-1.0.xsd">
+            <wsse:UsernameToken>
+                <wsse:Username>poc-client</wsse:Username>
+                <wsse:Password Type="http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-username-token-profile-1.0#PasswordText">poc-secret</wsse:Password>
+            </wsse:UsernameToken>
+        </wsse:Security>
+    </soapenv:Header>
+    <soapenv:Body>
+        <!-- Contract First 스키마는 elementFormDefault="qualified"라서 자식 요소도 네임스페이스를 갖는다 -->
+        <v1:approveCardRequest>
+            <v1:merchantId>M3001</v1:merchantId>
+            <v1:txId>TX-CF-20260911-0001</v1:txId>
+            <v1:cardNo>1234567890123456</v1:cardNo>
+            <v1:amount>11000</v1:amount>
+        </v1:approveCardRequest>
+    </soapenv:Body>
+</soapenv:Envelope>

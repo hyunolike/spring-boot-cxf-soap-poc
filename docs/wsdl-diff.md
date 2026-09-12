@@ -165,7 +165,8 @@ First decides for you.
 </soap:Fault>
 ```
 
-…but `?wsdl` is byte-identical to the unsecured version. The requirement lives in an interceptor,
+…but the interceptor contributed **zero** lines to `?wsdl`: re-capturing it after wiring WSS4J in
+produced only the `txId` / `duplicated` changes above. The requirement lives in an interceptor,
 not in the published contract, so a consumer reading the WSDL has no way to learn that a
 `wsse:UsernameToken` header is mandatory. Publishing a WS-SecurityPolicy assertion is what makes
 it discoverable; this PoC does not, which is why `scripts/*.sh` carry the header by hand.
