@@ -93,6 +93,19 @@ class TossPaySoapIntegrationTest {
         assertThat(second.getMessage()).contains("이미 취소된 거래");
     }
 
+    @Test
+    void 같은_주문번호로_두_번_결제하면_기존_결제를_돌려준다() {
+        TossPayService toss = tossClient();
+
+        TossPayResponse first = toss.pay(payRequest("ORDER-DUP", "8000"));
+        TossPayResponse second = toss.pay(payRequest("ORDER-DUP", "8000"));
+
+        assertThat(first.isDuplicated()).isFalse();
+        assertThat(second.isDuplicated()).isTrue();
+        assertThat(second.getStatus()).isEqualTo("DONE");
+        assertThat(second.getPaymentKey()).isEqualTo(first.getPaymentKey());
+    }
+
     /** 멀티 Endpoint의 핵심: 한쪽으로 넣은 거래를 다른 쪽 계약으로 조회할 수 있다. */
     @Test
     void 토스_계약으로_승인한_거래를_카드_계약으로_조회할_수_있다() {

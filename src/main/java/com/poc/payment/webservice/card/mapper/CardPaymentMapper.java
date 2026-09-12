@@ -1,6 +1,7 @@
 package com.poc.payment.webservice.card.mapper;
 
 import com.poc.payment.domain.Payment;
+import com.poc.payment.service.ApprovalResult;
 import com.poc.payment.webservice.card.dto.CardApprovalResponse;
 import com.poc.payment.webservice.card.dto.CardCancelResponse;
 import com.poc.payment.webservice.card.dto.CardInquiryResponse;
@@ -16,12 +17,16 @@ public final class CardPaymentMapper {
     private CardPaymentMapper() {
     }
 
-    public static CardApprovalResponse toApprovalResponse(Payment payment) {
+    public static CardApprovalResponse toApprovalResponse(ApprovalResult result) {
+        Payment payment = result.payment();
         CardApprovalResponse response = new CardApprovalResponse();
         response.setResultCode("0000");
-        response.setResultMessage("승인 성공");
+        response.setResultMessage(result.duplicated()
+                ? "이미 승인된 거래입니다 (기존 승인 반환)"
+                : "승인 성공");
         response.setApprovalNo(payment.getApprovalNo());
         response.setApprovedAt(payment.getApprovedAt().format(FORMATTER));
+        response.setDuplicated(result.duplicated());
         return response;
     }
 

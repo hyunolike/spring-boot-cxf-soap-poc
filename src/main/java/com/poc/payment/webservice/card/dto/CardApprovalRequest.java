@@ -15,11 +15,15 @@ import java.math.BigDecimal;
 @Setter
 @NoArgsConstructor
 @XmlAccessorType(XmlAccessType.FIELD)
-@XmlType(name = "CardApprovalRequest", propOrder = {"merchantId", "cardNo", "amount"})
+@XmlType(name = "CardApprovalRequest", propOrder = {"merchantId", "txId", "cardNo", "amount"})
 public class CardApprovalRequest {
 
     @XmlElement(required = true)
     private String merchantId;
+
+    /** 가맹점 거래고유번호. 같은 값으로 두 번 보내도 승인은 한 건만 생긴다. */
+    @XmlElement(required = true)
+    private String txId;
 
     @XmlElement(required = true)
     private String cardNo;

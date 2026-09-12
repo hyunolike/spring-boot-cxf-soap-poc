@@ -1,6 +1,7 @@
 package com.poc.payment.webservice.toss.mapper;
 
 import com.poc.payment.domain.Payment;
+import com.poc.payment.service.ApprovalResult;
 import com.poc.payment.webservice.toss.dto.TossCancelResponse;
 import com.poc.payment.webservice.toss.dto.TossPayResponse;
 
@@ -18,13 +19,16 @@ public final class TossPayMapper {
     private TossPayMapper() {
     }
 
-    public static TossPayResponse toPayResponse(Payment payment, String orderId) {
+    public static TossPayResponse toPayResponse(ApprovalResult result, String orderId) {
+        Payment payment = result.payment();
         TossPayResponse response = new TossPayResponse();
+        // 멱등 응답이므로 재요청도 성공 상태로 내려준다.
         response.setStatus("DONE");
         response.setPaymentKey(payment.getApprovalNo());
         response.setOrderId(orderId);
-        response.setMessage("결제 완료");
+        response.setMessage(result.duplicated() ? "이미 처리된 결제입니다" : "결제 완료");
         response.setApprovedAt(payment.getApprovedAt().format(FORMATTER));
+        response.setDuplicated(result.duplicated());
         return response;
     }
 

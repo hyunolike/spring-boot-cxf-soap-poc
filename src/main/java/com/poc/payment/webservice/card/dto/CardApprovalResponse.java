@@ -12,7 +12,7 @@ import lombok.Setter;
 @NoArgsConstructor
 @XmlAccessorType(XmlAccessType.FIELD)
 @XmlType(name = "CardApprovalResponse",
-        propOrder = {"resultCode", "resultMessage", "approvalNo", "approvedAt"})
+        propOrder = {"resultCode", "resultMessage", "approvalNo", "approvedAt", "duplicated"})
 public class CardApprovalResponse {
 
     /** 0000: 성공 */
@@ -20,4 +20,6 @@ public class CardApprovalResponse {
     private String resultMessage;
     private String approvalNo;
     private String approvedAt;
+    /** true면 이번 요청으로 승인된 것이 아니라 기존 승인을 그대로 돌려준 것이다. */
+    private boolean duplicated;
 }

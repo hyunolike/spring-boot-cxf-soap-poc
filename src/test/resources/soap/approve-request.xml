@@ -4,6 +4,7 @@
         <pay:approve>
             <request>
                 <merchantId>M1001</merchantId>
+                <txId>TX-20260911-0001</txId>
                 <cardNo>1234567890123456</cardNo>
                 <amount>10000</amount>
             </request>

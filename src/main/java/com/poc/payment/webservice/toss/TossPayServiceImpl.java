@@ -1,6 +1,7 @@
 package com.poc.payment.webservice.toss;
 
 import com.poc.payment.domain.Payment;
+import com.poc.payment.service.ApprovalResult;
 import com.poc.payment.service.PaymentApplicationService;
 import com.poc.payment.webservice.toss.dto.TossCancelRequest;
 import com.poc.payment.webservice.toss.dto.TossCancelResponse;
@@ -34,11 +35,12 @@ public class TossPayServiceImpl implements TossPayService {
         log.info("[SOAP/toss] pay storeId={}, orderId={}, totalAmount={}",
                 request.getStoreId(), request.getOrderId(), request.getTotalAmount());
         try {
-            Payment payment = paymentApplicationService.approve(
+            ApprovalResult result = paymentApplicationService.approve(
                     request.getStoreId(),
+                    request.getOrderId(),   // 이 계약은 주문번호를 멱등성 키로 쓴다
                     request.getPayToken(),
                     request.getTotalAmount());
-            return TossPayMapper.toPayResponse(payment, request.getOrderId());
+            return TossPayMapper.toPayResponse(result, request.getOrderId());
         } catch (IllegalArgumentException e) {
             return TossPayMapper.payAborted(request.getOrderId(), e.getMessage());
         } catch (Exception e) {

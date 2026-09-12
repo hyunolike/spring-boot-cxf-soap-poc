@@ -13,7 +13,7 @@ import lombok.Setter;
 @NoArgsConstructor
 @XmlAccessorType(XmlAccessType.FIELD)
 @XmlType(name = "TossPayResponse",
-        propOrder = {"status", "paymentKey", "orderId", "message", "approvedAt"})
+        propOrder = {"status", "paymentKey", "orderId", "message", "approvedAt", "duplicated"})
 public class TossPayResponse {
 
     /** DONE / ABORTED */
@@ -23,4 +23,6 @@ public class TossPayResponse {
     private String orderId;
     private String message;
     private String approvedAt;
+    /** 같은 orderId로 다시 들어온 요청이면 true */
+    private boolean duplicated;
 }

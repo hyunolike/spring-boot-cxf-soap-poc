@@ -25,7 +25,7 @@ public class TossPayRequest {
     @XmlElement(required = true)
     private String storeId;
 
-    /** 가맹점이 부여하는 주문번호 */
+    /** 가맹점이 부여하는 주문번호. 이 계약에서는 이 값이 멱등성 키다. */
     @XmlElement(required = true)
     private String orderId;
 

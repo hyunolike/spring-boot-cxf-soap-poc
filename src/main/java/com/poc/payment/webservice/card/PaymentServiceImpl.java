@@ -1,6 +1,7 @@
 package com.poc.payment.webservice.card;
 
 import com.poc.payment.domain.Payment;
+import com.poc.payment.service.ApprovalResult;
 import com.poc.payment.service.PaymentApplicationService;
 import com.poc.payment.webservice.card.dto.CardApprovalRequest;
 import com.poc.payment.webservice.card.dto.CardApprovalResponse;
@@ -34,14 +35,15 @@ public class PaymentServiceImpl implements PaymentService {
 
     @Override
     public CardApprovalResponse approve(CardApprovalRequest request) {
-        log.info("[SOAP] approve merchantId={}, amount={}",
-                request.getMerchantId(), request.getAmount());
+        log.info("[SOAP] approve merchantId={}, txId={}, amount={}",
+                request.getMerchantId(), request.getTxId(), request.getAmount());
         try {
-            Payment payment = paymentApplicationService.approve(
+            ApprovalResult result = paymentApplicationService.approve(
                     request.getMerchantId(),
+                    request.getTxId(),
                     request.getCardNo(),
                     request.getAmount());
-            return CardPaymentMapper.toApprovalResponse(payment);
+            return CardPaymentMapper.toApprovalResponse(result);
         } catch (IllegalArgumentException e) {
             return CardPaymentMapper.approvalFail("1001", e.getMessage());
         } catch (Exception e) {
