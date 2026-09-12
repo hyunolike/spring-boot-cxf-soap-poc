@@ -42,6 +42,14 @@ public class PaymentApplicationService {
         return payment;
     }
 
+    @Transactional(readOnly = true)
+    public Payment inquiry(String merchantId, String approvalNo) {
+        return paymentRepository
+                .findByMerchantIdAndApprovalNo(merchantId, approvalNo)
+                .orElseThrow(() -> new IllegalArgumentException(
+                        "거래를 찾을 수 없습니다: " + approvalNo));
+    }
+
     private void validate(String merchantId, String cardNo, BigDecimal amount) {
         if (merchantId == null || merchantId.isBlank()) {
             throw new IllegalArgumentException("merchantId는 필수입니다");

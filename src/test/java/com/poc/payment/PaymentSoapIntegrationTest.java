@@ -5,6 +5,8 @@ import com.poc.payment.webservice.card.dto.CardApprovalRequest;
 import com.poc.payment.webservice.card.dto.CardApprovalResponse;
 import com.poc.payment.webservice.card.dto.CardCancelRequest;
 import com.poc.payment.webservice.card.dto.CardCancelResponse;
+import com.poc.payment.webservice.card.dto.CardInquiryRequest;
+import com.poc.payment.webservice.card.dto.CardInquiryResponse;
 import org.apache.cxf.jaxws.JaxWsProxyFactoryBean;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -50,6 +52,64 @@ class PaymentSoapIntegrationTest {
 
         CardCancelResponse cancel = payment.cancel(cancelRequest);
         assertThat(cancel.getResultCode()).isEqualTo("0000");
+    }
+
+    @Test
+    void 승인한_거래를_조회하면_상태와_금액이_내려온다() {
+        PaymentService payment = client();
+
+        CardApprovalRequest approvalRequest = new CardApprovalRequest();
+        approvalRequest.setMerchantId("M1001");
+        approvalRequest.setCardNo("1234567890123456");
+        approvalRequest.setAmount(new BigDecimal("25000"));
+        CardApprovalResponse approval = payment.approve(approvalRequest);
+
+        CardInquiryRequest inquiryRequest = new CardInquiryRequest();
+        inquiryRequest.setMerchantId("M1001");
+        inquiryRequest.setApprovalNo(approval.getApprovalNo());
+
+        CardInquiryResponse inquiry = payment.inquiry(inquiryRequest);
+        assertThat(inquiry.getResultCode()).isEqualTo("0000");
+        assertThat(inquiry.getStatus()).isEqualTo("APPROVED");
+        assertThat(inquiry.getAmount()).isEqualByComparingTo(new BigDecimal("25000"));
+        assertThat(inquiry.getMaskedCardNo()).isEqualTo("123456******3456");
+        assertThat(inquiry.getCanceledAt()).isNull();
+    }
+
+    @Test
+    void 취소한_거래를_조회하면_취소상태가_내려온다() {
+        PaymentService payment = client();
+
+        CardApprovalRequest approvalRequest = new CardApprovalRequest();
+        approvalRequest.setMerchantId("M1001");
+        approvalRequest.setCardNo("1234567890123456");
+        approvalRequest.setAmount(new BigDecimal("30000"));
+        CardApprovalResponse approval = payment.approve(approvalRequest);
+
+        CardCancelRequest cancelRequest = new CardCancelRequest();
+        cancelRequest.setMerchantId("M1001");
+        cancelRequest.setApprovalNo(approval.getApprovalNo());
+        payment.cancel(cancelRequest);
+
+        CardInquiryRequest inquiryRequest = new CardInquiryRequest();
+        inquiryRequest.setMerchantId("M1001");
+        inquiryRequest.setApprovalNo(approval.getApprovalNo());
+
+        CardInquiryResponse inquiry = payment.inquiry(inquiryRequest);
+        assertThat(inquiry.getStatus()).isEqualTo("CANCELED");
+        assertThat(inquiry.getCanceledAt()).isNotBlank();
+    }
+
+    @Test
+    void 없는_승인번호를_조회하면_실패코드를_반환한다() {
+        PaymentService payment = client();
+
+        CardInquiryRequest request = new CardInquiryRequest();
+        request.setMerchantId("M1001");
+        request.setApprovalNo("AP20990101000000");
+
+        CardInquiryResponse response = payment.inquiry(request);
+        assertThat(response.getResultCode()).isEqualTo("3001");
     }
 
     @Test

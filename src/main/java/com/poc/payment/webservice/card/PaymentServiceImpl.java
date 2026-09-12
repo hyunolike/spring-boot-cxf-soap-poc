@@ -6,6 +6,8 @@ import com.poc.payment.webservice.card.dto.CardApprovalRequest;
 import com.poc.payment.webservice.card.dto.CardApprovalResponse;
 import com.poc.payment.webservice.card.dto.CardCancelRequest;
 import com.poc.payment.webservice.card.dto.CardCancelResponse;
+import com.poc.payment.webservice.card.dto.CardInquiryRequest;
+import com.poc.payment.webservice.card.dto.CardInquiryResponse;
 import com.poc.payment.webservice.card.mapper.CardPaymentMapper;
 import jakarta.jws.WebService;
 import lombok.RequiredArgsConstructor;
@@ -61,6 +63,22 @@ public class PaymentServiceImpl implements PaymentService {
         } catch (Exception e) {
             log.error("cancel failed", e);
             return CardPaymentMapper.cancelFail("9999", "시스템 오류");
+        }
+    }
+
+    @Override
+    public CardInquiryResponse inquiry(CardInquiryRequest request) {
+        log.info("[SOAP] inquiry approvalNo={}", request.getApprovalNo());
+        try {
+            Payment payment = paymentApplicationService.inquiry(
+                    request.getMerchantId(),
+                    request.getApprovalNo());
+            return CardPaymentMapper.toInquiryResponse(payment);
+        } catch (IllegalArgumentException e) {
+            return CardPaymentMapper.inquiryFail("3001", e.getMessage());
+        } catch (Exception e) {
+            log.error("inquiry failed", e);
+            return CardPaymentMapper.inquiryFail("9999", "시스템 오류");
         }
     }
 }

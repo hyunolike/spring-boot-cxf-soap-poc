@@ -4,6 +4,8 @@ import com.poc.payment.webservice.card.dto.CardApprovalRequest;
 import com.poc.payment.webservice.card.dto.CardApprovalResponse;
 import com.poc.payment.webservice.card.dto.CardCancelRequest;
 import com.poc.payment.webservice.card.dto.CardCancelResponse;
+import com.poc.payment.webservice.card.dto.CardInquiryRequest;
+import com.poc.payment.webservice.card.dto.CardInquiryResponse;
 import jakarta.jws.WebMethod;
 import jakarta.jws.WebParam;
 import jakarta.jws.WebResult;
@@ -31,4 +33,10 @@ public interface PaymentService {
     @WebResult(name = "response")
     CardCancelResponse cancel(
             @WebParam(name = "request") CardCancelRequest request);
+
+    /** 오퍼레이션을 하나 늘리면 WSDL이 어떻게 늘어나는지 관찰하기 위한 조회. */
+    @WebMethod
+    @WebResult(name = "response")
+    CardInquiryResponse inquiry(
+            @WebParam(name = "request") CardInquiryRequest request);
 }
