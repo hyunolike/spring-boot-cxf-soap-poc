@@ -1,6 +1,11 @@
 cxf:
   path: /services   # SOAP Endpoint base path
 
+soap:
+  security:         # wsse:UsernameToken 검증용 계정 (PoC라서 평문 설정)
+    username: poc-client
+    password: poc-secret
+
 spring:
   datasource:
     url: jdbc:h2:mem:paymentdb

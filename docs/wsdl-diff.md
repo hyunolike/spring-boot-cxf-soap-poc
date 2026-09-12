@@ -130,3 +130,42 @@ diff -u before.wsdl after.wsdl
        <soap:operation soapAction="" style="document"/>
        <wsdl:input name="cancel">
 ```
+
+## Follow-up: what the later roadmap items did to the same WSDL
+
+Two more changes landed after the `inquiry` diff above. Both are instructive:
+
+**Idempotency (`txId`) changed the contract.** Adding one required request field and one
+response field rewrote the schema that every consumer validates against:
+
+```diff
+       <xs:complexType name="CardApprovalRequest">
+         <xs:sequence>
+           <xs:element name="merchantId" type="xs:string"/>
++          <xs:element name="txId" type="xs:string"/>
+           <xs:element name="cardNo" type="xs:string"/>
+           <xs:element name="amount" type="xs:decimal"/>
+         </xs:sequence>
+@@
+           <xs:element minOccurs="0" name="approvedAt" type="xs:string"/>
++          <xs:element name="duplicated" type="xs:boolean"/>
+```
+
+`duplicated` is a primitive `boolean`, so JAXB emitted it **without** `minOccurs="0"` — unlike
+the `String` fields next to it. A primitive cannot be absent, so the schema says it is mandatory.
+Switching the field to `Boolean` would make it optional again. That is the kind of detail Java
+First decides for you.
+
+**WS-Security changed nothing.** With `WSS4JInInterceptor` wired in, an unauthenticated call gets
+
+```xml
+<soap:Fault>
+  <faultcode xmlns:ns1="http://ws.apache.org/wss4j">ns1:SecurityError</faultcode>
+  <faultstring>A security error was encountered when verifying the message</faultstring>
+</soap:Fault>
+```
+
+…but `?wsdl` is byte-identical to the unsecured version. The requirement lives in an interceptor,
+not in the published contract, so a consumer reading the WSDL has no way to learn that a
+`wsse:UsernameToken` header is mandatory. Publishing a WS-SecurityPolicy assertion is what makes
+it discoverable; this PoC does not, which is why `scripts/*.sh` carry the header by hand.

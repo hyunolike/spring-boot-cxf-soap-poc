@@ -29,6 +29,12 @@ dependencies {
     implementation "org.apache.cxf:cxf-spring-boot-starter-jaxws:${cxfVersion}"
     // SOAP 메시지 XML 로깅 (마샬링 과정 눈으로 확인용)
     implementation "org.apache.cxf:cxf-rt-features-logging:${cxfVersion}"
+    // WS-Security (WSS4J) — SOAP 헤더 UsernameToken 인증.
+    // SAML 토큰은 쓰지 않으므로 opensaml 계열을 제외한다.
+    // (Maven Central에 없고 Shibboleth 레포에만 있는 아티팩트다)
+    implementation("org.apache.cxf:cxf-rt-ws-security:${cxfVersion}") {
+        exclude group: 'org.opensaml'
+    }
 
     runtimeOnly 'com.h2database:h2'
 

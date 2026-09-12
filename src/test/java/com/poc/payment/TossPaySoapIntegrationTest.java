@@ -8,7 +8,7 @@ import com.poc.payment.webservice.toss.dto.TossCancelRequest;
 import com.poc.payment.webservice.toss.dto.TossCancelResponse;
 import com.poc.payment.webservice.toss.dto.TossPayRequest;
 import com.poc.payment.webservice.toss.dto.TossPayResponse;
-import org.apache.cxf.jaxws.JaxWsProxyFactoryBean;
+import com.poc.payment.support.SoapTestClients;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.server.LocalServerPort;
@@ -28,17 +28,11 @@ class TossPaySoapIntegrationTest {
     private int port;
 
     private TossPayService tossClient() {
-        JaxWsProxyFactoryBean factory = new JaxWsProxyFactoryBean();
-        factory.setServiceClass(TossPayService.class);
-        factory.setAddress("http://localhost:" + port + "/services/toss-payment");
-        return factory.create(TossPayService.class);
+        return SoapTestClients.secured(TossPayService.class, port, "/services/toss-payment");
     }
 
     private PaymentService cardClient() {
-        JaxWsProxyFactoryBean factory = new JaxWsProxyFactoryBean();
-        factory.setServiceClass(PaymentService.class);
-        factory.setAddress("http://localhost:" + port + "/services/payment");
-        return factory.create(PaymentService.class);
+        return SoapTestClients.secured(PaymentService.class, port, "/services/payment");
     }
 
     private TossPayRequest payRequest(String orderId, String amount) {

@@ -7,7 +7,7 @@ import com.poc.payment.webservice.card.dto.CardCancelRequest;
 import com.poc.payment.webservice.card.dto.CardCancelResponse;
 import com.poc.payment.webservice.card.dto.CardInquiryRequest;
 import com.poc.payment.webservice.card.dto.CardInquiryResponse;
-import org.apache.cxf.jaxws.JaxWsProxyFactoryBean;
+import com.poc.payment.support.SoapTestClients;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.server.LocalServerPort;
@@ -30,10 +30,7 @@ class PaymentSoapIntegrationTest {
     private int port;
 
     private PaymentService client() {
-        JaxWsProxyFactoryBean factory = new JaxWsProxyFactoryBean();
-        factory.setServiceClass(PaymentService.class);
-        factory.setAddress("http://localhost:" + port + "/services/payment");
-        return factory.create(PaymentService.class);
+        return SoapTestClients.secured(PaymentService.class, port, "/services/payment");
     }
 
     private CardApprovalRequest approvalRequest(String txId, String amount) {
